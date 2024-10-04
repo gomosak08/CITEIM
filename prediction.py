@@ -1,74 +1,59 @@
-import torch
-import torch.nn as nn
-from functions import KeypointTransformer
-import json
+# Import necessary libraries and modules
+import torch  # PyTorch library for tensor computations and model handling
+import torch.nn as nn  # Neural network components from PyTorch
+from functions import KeypointTransformer  # Custom model class for keypoint-based prediction
 
-def load_model():
-    # Instantiate the model (ensure the model structure is identical to when you trained it)
-    n_keypoints = 75
-    n_features = 3
-    n_frames = 60
-    d_model = 128
-    num_classes = 29
-
-    # Create the model
-    model = KeypointTransformer(n_keypoints=n_keypoints, n_features=n_features, n_frames=n_frames, d_model=d_model, num_classes=num_classes)
-
-    # Load the saved model weights
-    model.load_state_dict(torch.load(MODEL_PATH))
-
-    # Set the model to evaluation mode
-    model.eval()
-    return model
-
-
-def made_pred(keypoints, model):
-    #Make predictions (forward pass)
-    #print(keypoints.shape, "pre_234")
-    with torch.no_grad():  # Disable gradient calculations for inference
-        #print(keypoints.shape, "prediction")
-        output = model(keypoints)
-
-    #probabilities = torch.softmax(output, dim=1)  # Convert logits to probabilities
-    predicted_classes = torch.argmax(output, dim=1)  # Get the predicted class (index with the highest score)
-    #print(predicted_classes)
-    # Print or return the predictions for the batch
-    #print(f"Predicted probabilities: {probabilities}")
-    #print(f"Predicted classes: {predicted_classes}")
-    return predicted_classes
-
-
+# Path to the saved model file
 MODEL_PATH = 'keypoint_transformer.pth'
 
 
+# Function to load the trained model
+def load_model():
+    """
+    This function loads a pre-trained KeypointTransformer model with the given architecture.
 
-# Example keypoints input (similar shape to your training data)
-# Replace this with actual input data
-#keypoints = torch.randn(1, 60, 75, 3)
-"""
-# Replace 'your_file.json' with the path to your JSON file
-with open('keypoints_dataset_test.json', 'r') as f:
-    json_data = json.load(f)
-# Move the model and input to the correct device (CPU or GPU)
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-model = model.to(device)
+    Returns:
+        model (torch.nn.Module): The loaded KeypointTransformer model ready for inference.
+    """
 
-for i in range(len(json_data)):
-    d = json_data[i]['keypoints']
+    # Define the model's architecture parameters (these should match the parameters used during training)
+    n_keypoints = 75      # Number of keypoints (e.g., for pose estimation, this could be joints or landmarks)
+    n_features = 3        # Number of features for each keypoint (x, y, and confidence score or similar)
+    n_frames = 60         # Number of frames in the input sequence (how long the sequence of keypoints is)
+    d_model = 128         # Dimensionality of the internal model's representation
+    num_classes = 29      # Number of output classes (the number of classes the model can predict)
 
-    #print(json_data[0]['keypoints'])
-    tensor_1d = torch.tensor(d)
-    if tensor_1d.shape[0] >1:
-        tensor_split = torch.split(tensor_1d, 1, dim=0)
-        for t in tensor_split:
-            keypoints = tensor_1d.to(device)
-            made_pred(keypoints)
-    else:
-        keypoints = tensor_1d.to(device)
-        made_pred(keypoints)
-"""
+    # Create an instance of the KeypointTransformer model using the specified parameters
+    model = KeypointTransformer(n_keypoints=n_keypoints, n_features=n_features, n_frames=n_frames, d_model=d_model, num_classes=num_classes)
 
+    # Load the pre-trained model weights from the specified file path
+    model.load_state_dict(torch.load(MODEL_PATH))
 
+    # Set the model to evaluation mode, disabling dropout and other training-specific layers
+    model.eval()
+
+    return model  # Return the loaded model for inference
 
 
+# Function to make predictions using the loaded model
+def made_pred(keypoints, model):
+    """
+    This function makes predictions based on the keypoints input using the provided model.
 
+    Args:
+        keypoints (torch.Tensor): The input tensor containing keypoints data, typically of shape [batch_size, n_frames, n_keypoints, n_features].
+        model (torch.nn.Module): The pre-trained model used for inference.
+
+    Returns:
+        predicted_classes (torch.Tensor): Tensor containing the predicted class indices for each input in the batch.
+    """
+
+    # Disable gradient calculations to improve performance during inference (we don't need to backpropagate)
+    with torch.no_grad():
+        # Forward pass: run the input keypoints through the model to obtain the raw class scores (logits)
+        output = model(keypoints)
+
+    # Use torch.argmax to select the class with the highest score for each input in the batch
+    predicted_classes = torch.argmax(output, dim=1)
+
+    return predicted_classes  # Return the predicted class indices
